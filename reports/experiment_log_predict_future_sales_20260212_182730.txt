@@ -1,0 +1,5 @@
+[2026-02-12 18:27:30] 
+================================================================================
+[2026-02-12 18:27:30] DATASET: predict_future_sales
+[2026-02-12 18:27:30] ================================================================================
+[2026-02-12 18:27:30] ERRO: Arquivo não encontrado /datas/Kemuel/Study/UFOP/10_periodo/Redes Neurais e Aprendizagem em Profundidade/Projeto Final/projeto_series_temporais/data/Predict-Future-Sales-Translated-Dataset/sales_train.csv
