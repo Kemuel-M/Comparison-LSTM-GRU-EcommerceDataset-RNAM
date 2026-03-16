@@ -1,4 +1,4 @@
-# Previsão de Séries Temporais: LSTM vs GRU (v3.0 - Comparação Exaustiva)
+# Previsão de Séries Temporais: LSTM vs GRU
 
 Sistema modular avançado para comparação de modelos LSTM e GRU em previsão de demanda, com análise de múltiplas arquiteturas e janelas temporais.
 
@@ -15,7 +15,7 @@ Sistema modular avançado para comparação de modelos LSTM e GRU em previsão d
 ```
 projeto_series_temporais/
 ├── src/                    # Código fonte
-│   ├── main.py            # Script principal (v3.0 - Comparação Exaustiva)
+│   ├── main.py            # Script principal
 │   ├── config.py          # Configurações de Janelas e Arquiteturas
 │   ├── dataset_configs.py # Configurações por dataset
 │   ├── models.py          # Modelos LSTM e GRU com MLP Head
@@ -55,7 +55,7 @@ mlflow ui --backend-store-uri ./mlruns
 
 ## 🎓 Para o Relatório Científico
 
-A versão 3.0 permite uma análise estatística muito mais rica, possibilitando responder:
+permite uma análise estatística muito mais rica, possibilitando responder:
 1. Qual o impacto do tamanho da janela na precisão? (Janelas longas de 1 ano capturam melhor a sazonalidade?)
 2. Qual arquitetura oferece o melhor trade-off entre precisão e tempo de treino?
 3. GRU continua superando LSTM em redes mais profundas (Large)?
@@ -70,6 +70,4 @@ A versão 3.0 permite uma análise estatística muito mais rica, possibilitando 
 
 ---
 
-**Versão:** 3.0
-**Última atualização:** 2026-02-12
-**Status:** ✅ Restruturado e Expandido
+
