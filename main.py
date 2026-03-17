@@ -81,6 +81,8 @@ def main() -> None:
                         help='Executar apenas a comparação entre os melhores de cada tipo já treinados')
     parser.add_argument('--dataset', type=str, choices=list_available_datasets(),
                         help='Dataset específico para rodar (padrão: todos os disponíveis)')
+    parser.add_argument('--save_models', action='store_true',
+                        help='Salvar os modelos treinados em disco (.pt)')
     
     args = parser.parse_args()
     
@@ -108,11 +110,11 @@ def main() -> None:
         
         try:
             if args.compare_best:
-                results = run_best_comparison(dataset_name, logger)
+                results = run_best_comparison(dataset_name, logger, model_types=model_types, save_models=args.save_models)
                 if results:
                     all_metrics.extend(results)
             else:
-                metrics_list = run_dataset_experiments(dataset_name, model_types, logger)
+                metrics_list = run_dataset_experiments(dataset_name, model_types, logger, save_models=args.save_models)
                 if metrics_list:
                     all_metrics.extend(metrics_list)
         except Exception as e:
@@ -124,14 +126,17 @@ def main() -> None:
             
     # Salvar resultados consolidados
     if all_metrics:
-        if not args.compare_best:
-            save_consolidated_results(all_metrics, args.model_type)
-        else:
+        # Define o sufixo do relatório baseado no modo
+        report_suffix = args.model_type if not args.compare_best else f"best_{args.model_type}"
+        save_consolidated_results(all_metrics, report_suffix)
+        
+        if args.compare_best:
             print("\n" + "="*50)
-            print("COMPARAÇÃO FINAL: BEST LSTM vs BEST GRU")
+            print(f"RESULTADOS FINAIS: MELHOR(ES) {args.model_type.upper()}")
             print("="*50)
             df_final = pd.DataFrame(all_metrics)
-            print(df_final[['model_name', 'RMSE', 'MAE', 'training_time']])
+            cols = [c for c in ['model_type', 'architecture', 'window_size', 'RMSE', 'MAE', 'training_time'] if c in df_final.columns]
+            print(df_final[cols])
 
 
 if __name__ == "__main__":

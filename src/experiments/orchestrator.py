@@ -25,7 +25,8 @@ def run_single_experiment(
     train_loader: DataLoader, 
     val_loader: DataLoader, 
     dataset_config: Dict[str, Any], 
-    logger: ExperimentLogger
+    logger: ExperimentLogger,
+    save_models: bool = False
 ) -> Tuple[Dict[str, Any], torch.nn.Module]:
     """Executa um ciclo completo (treino/val/avaliação) para uma única configuração.
 
@@ -37,6 +38,7 @@ def run_single_experiment(
         val_loader (DataLoader): Carregador de dados de validação.
         dataset_config (Dict[str, Any]): Dicionário com parâmetros do dataset.
         logger (ExperimentLogger): Utilitário de log customizado.
+        save_models (bool): Se True, salva o modelo em disco após o treinamento.
 
     Returns:
         Tuple[Dict[str, Any], torch.nn.Module]: Par contendo o dicionário 
@@ -63,6 +65,12 @@ def run_single_experiment(
         learning_rate=dataset_config['learning_rate']
     )
 
+    # Salvar modelo em disco se solicitado
+    if save_models:
+        model_path = config.MODELS_DIR / f"{model_full_name}.pt"
+        torch.save(model.state_dict(), model_path)
+        logger.log(f"Modelo salvo em: {model_path}")
+
     # Inferência para avaliação
     device = get_device()
     predictions, targets = predict(model, val_loader, device)
@@ -85,7 +93,8 @@ def run_single_experiment(
 def run_dataset_experiments(
     dataset_name: str, 
     model_types: List[str], 
-    logger: ExperimentLogger
+    logger: ExperimentLogger,
+    save_models: bool = False
 ) -> Optional[List[Dict[str, Any]]]:
     """Executa a bateria exaustiva de experimentos para um determinado dataset.
 
@@ -96,6 +105,7 @@ def run_dataset_experiments(
         dataset_name (str): Identificador do dataset (ex: 'demand_forecasting').
         model_types (List[str]): Lista de modelos a testar (ex: ['lstm', 'gru']).
         logger (ExperimentLogger): Utilitário de log.
+        save_models (bool): Se True, salva os modelos em disco.
 
     Returns:
         Optional[List[Dict[str, Any]]]: Lista consolidada de métricas de todos 
@@ -162,7 +172,8 @@ def run_dataset_experiments(
                     # Executar o experimento
                     metrics, model = run_single_experiment(
                         model_type, arch_name, window_size, 
-                        train_loader, val_loader, dataset_config, logger
+                        train_loader, val_loader, dataset_config, logger,
+                        save_models=save_models
                     )
                     
                     # Logs locais formatados
@@ -180,19 +191,23 @@ def run_dataset_experiments(
 
 def run_best_comparison(
     dataset_name: str, 
-    logger: ExperimentLogger
+    logger: ExperimentLogger,
+    model_types: List[str] = ['lstm', 'gru'],
+    save_models: bool = False
 ) -> Optional[List[Dict[str, Any]]]:
     """Identifica e re-executa os melhores modelos para uma comparação final direta.
 
-    Lê os resultados salvos em CSV, seleciona o melhor LSTM e o melhor GRU 
+    Lê os resultados salvos em CSV, seleciona o melhor de cada tipo solicitado
     baseado no RMSE e executa uma rodada final de validação.
 
     Args:
         dataset_name (str): Nome do dataset.
         logger (ExperimentLogger): Utilitário de log.
+        model_types (List[str]): Lista de tipos ('lstm', 'gru') para comparar.
+        save_models (bool): Se True, salva os modelos treinados em disco.
 
     Returns:
-        Optional[List[Dict[str, Any]]]: Lista com métricas dos dois melhores modelos.
+        Optional[List[Dict[str, Any]]]: Lista com métricas dos melhores modelos selecionados.
     """
     results_csv = config.RESULTS_DIR / "comprehensive_comparison.csv"
     if not results_csv.exists():
@@ -200,20 +215,17 @@ def run_best_comparison(
         return None
 
     df = pd.read_csv(results_csv)
+    best_rows = []
     
-    # Filtragem estatística para seleção do melhor LSTM
-    lstms = df[df['model_type'] == 'LSTM'].sort_values('RMSE')
-    if lstms.empty:
-        logger.log("ERRO: Nenhuma LSTM encontrada nos resultados.")
-        return None
-    best_lstm_row = lstms.iloc[0]
+    for m_type in model_types:
+        filtered = df[df['model_type'] == m_type.upper()].sort_values('RMSE')
+        if not filtered.empty:
+            best_rows.append(filtered.iloc[0])
+        else:
+            logger.log(f"AVISO: Nenhum modelo do tipo {m_type.upper()} encontrado para comparar.")
     
-    # Filtragem estatística para seleção do melhor GRU
-    grus = df[df['model_type'] == 'GRU'].sort_values('RMSE')
-    if grus.empty:
-        logger.log("ERRO: Nenhuma GRU encontrada nos resultados.")
+    if not best_rows:
         return None
-    best_gru_row = grus.iloc[0]
     
     dataset_config = get_dataset_config(dataset_name)
     logger.log_section("COMPARAÇÃO FINAL: TOP PERFORMERS")
@@ -229,8 +241,8 @@ def run_best_comparison(
     
     results = []
     
-    # Rodar os dois vencedores
-    for row in [best_lstm_row, best_gru_row]:
+    # Rodar os vencedores selecionados
+    for row in best_rows:
         model_type = row['model_type'].lower()
         arch_name = row['architecture']
         window_size = int(row['window_size'])
@@ -264,6 +276,12 @@ def run_best_comparison(
             epochs=dataset_config['epochs'],
             learning_rate=dataset_config['learning_rate']
         )
+        
+        # Salvar modelo em disco se solicitado
+        if save_models:
+            model_path = config.MODELS_DIR / f"{model_name}.pt"
+            torch.save(model.state_dict(), model_path)
+            logger.log(f"Modelo salvo em: {model_path}")
         
         device = get_device()
         predictions, targets = predict(model, val_loader, device)

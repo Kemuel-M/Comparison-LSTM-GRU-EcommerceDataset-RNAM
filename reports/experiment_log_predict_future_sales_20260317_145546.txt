@@ -1,5 +1,0 @@
-[2026-03-17 14:55:46] 
-================================================================================
-[2026-03-17 14:55:46] DATASET: predict_future_sales
-[2026-03-17 14:55:46] ================================================================================
-[2026-03-17 14:55:46] ERRO: Arquivo não encontrado /datas/Kemuel/Work/prog_carrer/projetos_portifolio/Comparison-LSTM-GRU-EcommerceDataset-RNAM/data/Predict-Future-Sales-Translated-Dataset/sales_train.csv

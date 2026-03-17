@@ -1,1 +1,0 @@
-source /home/kemuel/pythonVenvs/globalVenv/bin/activate
