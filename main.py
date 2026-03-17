@@ -1,6 +1,6 @@
 """
 Script principal para comparação exaustiva LSTM vs GRU
-Refatorado para melhor organização e modularização.
+Refatorado para melhor organização, modularização e documentação profissional.
 """
 import warnings
 warnings.filterwarnings('ignore')
@@ -10,6 +10,7 @@ import mlflow
 import argparse
 import pandas as pd
 from datetime import datetime
+from typing import List, Dict, Any, Optional
 
 from src import config
 from src.data.dataset_configs import list_available_datasets
@@ -17,8 +18,23 @@ from src.utils.utils import set_seed, ExperimentLogger, LoggerWrapper
 from src.experiments.orchestrator import run_dataset_experiments, run_best_comparison
 
 
-def save_consolidated_results(all_metrics, model_type):
-    """Salva e consolida os resultados dos experimentos"""
+def save_consolidated_results(all_metrics: List[Dict[str, Any]], model_type: str) -> None:
+    """Salva e consolida os resultados dos experimentos em CSV e gera um relatório TXT.
+
+    Esta função pega a lista de métricas coletadas durante os experimentos, 
+    converte em um DataFrame do Pandas, concatena com resultados existentes (se houver),
+    remove duplicatas baseadas na arquitetura e janela, e persiste os dados em disco.
+    Também gera um relatório TXT com o Top 5 modelos e médias por categoria.
+
+    Args:
+        all_metrics (List[Dict[str, Any]]): Lista de dicionários contendo métricas e 
+            parâmetros de cada modelo treinado.
+        model_type (str): Identificador do tipo de execução ('lstm', 'gru' ou 'all')
+            para nomeação do arquivo de resumo.
+
+    Returns:
+        None
+    """
     df_results = pd.DataFrame(all_metrics)
     results_path = config.RESULTS_DIR / "comprehensive_comparison.csv"
     
@@ -42,23 +58,33 @@ def save_consolidated_results(all_metrics, model_type):
         f.write(df_results.sort_values('RMSE').head(5)[['model_type', 'architecture', 'window_size', 'RMSE', 'MAE']].to_string() + "\n\n")
         
         f.write("MÉDIAS POR TIPO DE MODELO:\n")
-        f.write(df_results.groupby('model_type')[['RMSE', 'MAE', 'training_time']].mean().to_string() + "\n\n")
+        if not df_results.empty:
+            f.write(df_results.groupby('model_type')[['RMSE', 'MAE', 'training_time']].mean().to_string() + "\n\n")
         
     print(f"Relatório resumo salvo em: {summary_path}")
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Comparação LSTM vs GRU')
+def main() -> None:
+    """Ponto de entrada principal para a execução da bateria de experimentos.
+
+    Configura o ambiente (seeds, logs, MLflow), processa argumentos da linha de comando
+    e orquestra a execução dos experimentos para cada dataset disponível ou selecionado.
+    Ao final, consolida os resultados em relatórios.
+
+    Returns:
+        None
+    """
+    parser = argparse.ArgumentParser(description='Comparação LSTM vs GRU para Previsão de Demanda')
     parser.add_argument('--model_type', type=str, choices=['lstm', 'gru', 'all'], default='all',
                         help='Tipo de modelo para executar (padrão: all)')
     parser.add_argument('--compare_best', action='store_true',
-                        help='Executar apenas a comparação entre os melhores de cada tipo')
+                        help='Executar apenas a comparação entre os melhores de cada tipo já treinados')
     parser.add_argument('--dataset', type=str, choices=list_available_datasets(),
-                        help='Dataset específico para rodar (padrão: todos)')
+                        help='Dataset específico para rodar (padrão: todos os disponíveis)')
     
     args = parser.parse_args()
     
-    set_seed()
+    set_seed(config.RANDOM_SEED)
     
     # Configurar log de console
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -74,7 +100,7 @@ def main():
     mlflow.set_experiment(config.EXPERIMENT_NAME)
     
     available_datasets = [args.dataset] if args.dataset else list_available_datasets()
-    all_metrics = []
+    all_metrics: List[Dict[str, Any]] = []
     model_types = ['lstm', 'gru'] if args.model_type == 'all' else [args.model_type]
     
     for dataset_name in available_datasets:
@@ -90,7 +116,7 @@ def main():
                 if metrics_list:
                     all_metrics.extend(metrics_list)
         except Exception as e:
-            logger.log(f"Erro fatal: {str(e)}")
+            logger.log(f"Erro fatal durante execução: {str(e)}")
             import traceback
             logger.log(traceback.format_exc())
         finally:

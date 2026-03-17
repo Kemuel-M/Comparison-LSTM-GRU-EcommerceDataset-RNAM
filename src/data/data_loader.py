@@ -1,46 +1,71 @@
 """
-Carregamento e preparação dos dados
+Módulo de carregamento e preparação de dados para modelos de séries temporais.
+Contém classes e funções para manipulação de datasets, escalonamento e criação de janelas.
 """
 import pandas as pd
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
+from typing import Tuple, Optional, Dict, List, Any, Union
 from src import config
 
 
 class DemandDataset(Dataset):
-    """Dataset personalizado para previsão de demanda"""
+    """Dataset personalizado para previsão de demanda com PyTorch.
 
-    def __init__(self, X, y):
-        """
+    Esta classe herda de `torch.utils.data.Dataset` e é responsável por
+    converter arrays NumPy em tensores FloatTensor do PyTorch para treinamento.
+
+    Attributes:
+        X (torch.Tensor): Tensores de entrada (janelas de tempo deslizantes).
+        y (torch.Tensor): Tensores de saída (valores futuros a prever).
+    """
+
+    def __init__(self, X: np.ndarray, y: np.ndarray) -> None:
+        """Inicializa o dataset com features e targets.
+
         Args:
-            X: Features (janelas de tempo)
-            y: Targets (valores futuros)
+            X (np.ndaray): Array NumPy com as janelas de tempo.
+            y (np.ndarray): Array NumPy com os valores alvo.
         """
         self.X = torch.FloatTensor(X)
         self.y = torch.FloatTensor(y)
 
-    def __len__(self):
+    def __len__(self) -> int:
+        """Retorna o número total de amostras no dataset."""
         return len(self.X)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Obtém um par (entrada, alvo) dado um índice.
+
+        Args:
+            idx (int): Índice da amostra.
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Par contendo (features, target).
+        """
         return self.X[idx], self.y[idx]
 
 
-def load_data(file_path, date_column='date', target_column='sales', group_columns=None, date_format=None):
-    """
-    Carrega os dados do CSV
+def load_data(
+    file_path: Union[str, Any], 
+    date_column: str = 'date', 
+    target_column: str = 'sales', 
+    group_columns: Optional[List[str]] = None, 
+    date_format: Optional[str] = None
+) -> pd.DataFrame:
+    """Carrega dados brutos de um arquivo CSV e realiza pré-processamento básico de datas.
 
     Args:
-        file_path: Caminho para o arquivo CSV
-        date_column: Nome da coluna de data
-        target_column: Nome da coluna alvo
-        group_columns: Lista de colunas de agrupamento
-        date_format: Formato da data (ex: '%d.%m.%Y')
+        file_path (Union[str, Path]): Caminho para o arquivo CSV.
+        date_column (str): Nome da coluna contendo as datas. Padrão: 'date'.
+        target_column (str): Nome da coluna alvo (ex: vendas). Padrão: 'sales'.
+        group_columns (Optional[List[str]]): Lista de colunas usadas para agrupamento/ID.
+        date_format (Optional[str]): Formato de data específico para o parser do Pandas.
 
     Returns:
-        DataFrame com os dados
+        pd.DataFrame: DataFrame carregado e com colunas de data tipadas.
     """
     print(f"Carregando dados de {file_path}...")
     df = pd.read_csv(file_path)
@@ -66,17 +91,21 @@ def load_data(file_path, date_column='date', target_column='sales', group_column
     return df
 
 
-def create_sequences(data, window_size, forecast_horizon):
-    """
-    Cria sequências de janelas deslizantes
+def create_sequences(
+    data: np.ndarray, 
+    window_size: int, 
+    forecast_horizon: int
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Cria sequências de janelas deslizantes (Sliding Window) para modelos autorregressivos.
 
     Args:
-        data: Array com os dados de vendas
-        window_size: Tamanho da janela de entrada
-        forecast_horizon: Quantidade de dias a prever
+        data (np.ndarray): Array 1D ou 2D contendo a série temporal.
+        window_size (int): Tamanho da janela de entrada (passado).
+        forecast_horizon (int): Quantidade de passos à frente a prever (futuro).
 
     Returns:
-        X (features), y (targets)
+        Tuple[np.ndarray, np.ndarray]: Par (X, y) contendo as janelas de entrada
+            e seus respectivos alvos.
     """
     X, y = [], []
 
@@ -89,28 +118,34 @@ def create_sequences(data, window_size, forecast_horizon):
     return np.array(X), np.array(y)
 
 
-def prepare_data(df, window_size=config.WINDOW_SIZE,
-                 forecast_horizon=config.FORECAST_HORIZON,
-                 validation_split=config.VALIDATION_SPLIT,
-                 use_subset=True,
-                 subset_filter=None,
-                 date_column='date',
-                 target_column='sales'):
-    """
-    Prepara os dados para treinamento
+def prepare_data(
+    df: pd.DataFrame, 
+    window_size: int = config.WINDOW_SIZE,
+    forecast_horizon: int = config.FORECAST_HORIZON,
+    validation_split: float = config.VALIDATION_SPLIT,
+    use_subset: bool = True,
+    subset_filter: Optional[Dict[str, Any]] = None,
+    date_column: str = 'date',
+    target_column: str = 'sales'
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler]:
+    """Realiza o pipeline completo de preparação de dados para treinamento.
+
+    Inclui filtragem (subset), ordenação temporal, normalização (StandardScaler),
+    criação de sequências e divisão em treino/validação.
 
     Args:
-        df: DataFrame com os dados
-        window_size: Tamanho da janela de entrada
-        forecast_horizon: Quantidade de dias a prever
-        validation_split: Proporção para validação
-        use_subset: Se True, usa apenas um subset para teste mais rápido
-        subset_filter: Dict com filtros para subset (ex: {'store': 1, 'item': 1})
-        date_column: Nome da coluna de data
-        target_column: Nome da coluna alvo
+        df (pd.DataFrame): DataFrame original.
+        window_size (int): Tamanho da janela de entrada.
+        forecast_horizon (int): Horizonte de previsão.
+        validation_split (float): Proporção dos dados finais para validação.
+        use_subset (bool): Se deve usar apenas uma fatia dos dados para agilizar o treino.
+        subset_filter (Optional[Dict[str, Any]]): Filtro específico (ex: {'store': 1}).
+        date_column (str): Nome da coluna de data.
+        target_column (str): Nome da coluna alvo.
 
     Returns:
-        X_train, y_train, X_val, y_val, scaler
+        Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, StandardScaler]: 
+            Contém (X_train, y_train, X_val, y_val, scaler).
     """
     print("\nPreparando dados...")
 
@@ -164,17 +199,24 @@ def prepare_data(df, window_size=config.WINDOW_SIZE,
     return X_train, y_train, X_val, y_val, scaler
 
 
-def get_data_loaders(X_train, y_train, X_val, y_val, batch_size=config.BATCH_SIZE):
-    """
-    Cria DataLoaders para treino e validação
+def get_data_loaders(
+    X_train: np.ndarray, 
+    y_train: np.ndarray, 
+    X_val: np.ndarray, 
+    y_val: np.ndarray, 
+    batch_size: int = config.BATCH_SIZE
+) -> Tuple[DataLoader, DataLoader]:
+    """Encapsula arrays NumPy em DataLoaders do PyTorch.
 
     Args:
-        X_train, y_train: Dados de treino
-        X_val, y_val: Dados de validação
-        batch_size: Tamanho do batch
+        X_train (np.ndarray): Features de treino.
+        y_train (np.ndarray): Targets de treino.
+        X_val (np.ndarray): Features de validação.
+        y_val (np.ndarray): Targets de validação.
+        batch_size (int): Tamanho do lote para o carregador.
 
     Returns:
-        train_loader, val_loader
+        Tuple[DataLoader, DataLoader]: Iteradores (train_loader, val_loader).
     """
     train_dataset = DemandDataset(X_train, y_train)
     val_dataset = DemandDataset(X_val, y_val)

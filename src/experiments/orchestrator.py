@@ -1,28 +1,53 @@
 """
-Orquestrador de experimentos para comparação LSTM vs GRU
+Módulo Orquestrador de Experimentos.
+Gerencia o fluxo de alto nível: carregamento de dados, loops de hiperparâmetros,
+integração com MLflow e consolidação de métricas comparativas.
 """
 import torch
 import mlflow
 import mlflow.pytorch
 import pandas as pd
+from typing import List, Dict, Any, Optional, Tuple, Union
+from torch.utils.data import DataLoader
 from src import config
 from src.data.dataset_configs import get_dataset_config
-from src.utils.utils import get_device
+from src.utils.utils import get_device, ExperimentLogger
 from src.data.data_loader import load_data, prepare_data, get_data_loaders
 from src.models.models import get_model
 from src.training.train import train_model, predict
 from src.evaluation.evaluate import evaluate_model
 
 
-def run_single_experiment(model_type, arch_name, window_size, train_loader, val_loader, dataset_config, logger):
-    """Executa um único experimento com parâmetros específicos"""
-    
+def run_single_experiment(
+    model_type: str, 
+    arch_name: str, 
+    window_size: int, 
+    train_loader: DataLoader, 
+    val_loader: DataLoader, 
+    dataset_config: Dict[str, Any], 
+    logger: ExperimentLogger
+) -> Tuple[Dict[str, Any], torch.nn.Module]:
+    """Executa um ciclo completo (treino/val/avaliação) para uma única configuração.
+
+    Args:
+        model_type (str): Tipo de arquitetura ('lstm', 'gru').
+        arch_name (str): Nome da arquitetura pré-definida em config (ex: 'medium').
+        window_size (int): Tamanho da janela temporal de entrada.
+        train_loader (DataLoader): Carregador de dados de treino.
+        val_loader (DataLoader): Carregador de dados de validação.
+        dataset_config (Dict[str, Any]): Dicionário com parâmetros do dataset.
+        logger (ExperimentLogger): Utilitário de log customizado.
+
+    Returns:
+        Tuple[Dict[str, Any], torch.nn.Module]: Par contendo o dicionário 
+            de métricas calculadas e o objeto do modelo PyTorch.
+    """
     arch_params = config.ARCHITECTURES[arch_name]
     model_full_name = f"{model_type.upper()}_{arch_name}_W{window_size}"
     
     logger.log(f"Iniciando: {model_full_name}")
     
-    # Criar modelo
+    # Instanciar modelo via Factory
     model = get_model(
         model_type,
         hidden_size=arch_params['hidden_size'],
@@ -31,23 +56,23 @@ def run_single_experiment(model_type, arch_name, window_size, train_loader, val_
         forecast_horizon=dataset_config['forecast_horizon']
     )
 
-    # Treinar
+    # Treinamento
     model, history, training_time = train_model(
         model, train_loader, val_loader, model_full_name,
         epochs=dataset_config['epochs'],
         learning_rate=dataset_config['learning_rate']
     )
 
-    # Fazer previsões
+    # Inferência para avaliação
     device = get_device()
     predictions, targets = predict(model, val_loader, device)
 
-    # Avaliar
+    # Cálculo de métricas e geração de gráficos
     metrics = evaluate_model(
         model, predictions, targets, history, training_time, model_full_name
     )
     
-    # Adicionar metadados
+    # Enriquecer métricas com metadados do experimento
     metrics['model_type'] = model_type.upper()
     metrics['architecture'] = arch_name
     metrics['window_size'] = window_size
@@ -57,13 +82,29 @@ def run_single_experiment(model_type, arch_name, window_size, train_loader, val_
     return metrics, model
 
 
-def run_dataset_experiments(dataset_name, model_types, logger):
-    """Executa todos os experimentos para um dataset"""
-    
+def run_dataset_experiments(
+    dataset_name: str, 
+    model_types: List[str], 
+    logger: ExperimentLogger
+) -> Optional[List[Dict[str, Any]]]:
+    """Executa a bateria exaustiva de experimentos para um determinado dataset.
+
+    Percorre todas as combinações de tipos de modelo, arquiteturas e tamanhos 
+    de janela, registrando tudo no MLflow e no logger local.
+
+    Args:
+        dataset_name (str): Identificador do dataset (ex: 'demand_forecasting').
+        model_types (List[str]): Lista de modelos a testar (ex: ['lstm', 'gru']).
+        logger (ExperimentLogger): Utilitário de log.
+
+    Returns:
+        Optional[List[Dict[str, Any]]]: Lista consolidada de métricas de todos 
+            os experimentos realizados, ou None em caso de erro crítico.
+    """
     dataset_config = get_dataset_config(dataset_name)
     logger.log_section(f"DATASET: {dataset_name}")
     
-    # Carregar dados uma vez
+    # Carregar dados brutos apenas uma vez por dataset para otimizar tempo
     train_file_path = dataset_config['data_dir'] / dataset_config['train_file']
     if not train_file_path.exists():
         logger.log(f"ERRO: Arquivo não encontrado {train_file_path}")
@@ -79,11 +120,11 @@ def run_dataset_experiments(dataset_name, model_types, logger):
 
     all_metrics = []
     
-    # Loop sobre tamanhos de janela
+    # Loop externo: Janelas temporais (Impacto na preparação dos dados)
     for window_size in config.WINDOW_SIZES:
         logger.log_section(f"WINDOW SIZE: {window_size} dias")
         
-        # Preparar dados para esta janela
+        # Preparar dados para esta janela específica
         X_train, y_train, X_val, y_val, scaler = prepare_data(
             df_full,
             window_size=window_size,
@@ -100,15 +141,16 @@ def run_dataset_experiments(dataset_name, model_types, logger):
             batch_size=dataset_config['batch_size']
         )
         
-        # Loop sobre tipos de modelo
+        # Loop intermediário: LSTM vs GRU
         for model_type in model_types:
-            # Loop sobre arquiteturas
+            # Loop interno: Hiperparâmetros de arquitetura (Small, Medium, etc)
             for arch_name in config.ARCHITECTURES.keys():
                 
                 run_name = f"{model_type.upper()}_{arch_name}_W{window_size}_{dataset_name}"
                 
+                # Gerenciamento de execução via MLflow
                 with mlflow.start_run(run_name=run_name):
-                    # Log parâmetros no MLflow
+                    # Rastreamento de hiperparâmetros
                     mlflow.log_params({
                         "model_type": model_type.upper(),
                         "architecture": arch_name,
@@ -117,17 +159,18 @@ def run_dataset_experiments(dataset_name, model_types, logger):
                         **config.ARCHITECTURES[arch_name]
                     })
                     
-                    # Executar
+                    # Executar o experimento
                     metrics, model = run_single_experiment(
                         model_type, arch_name, window_size, 
                         train_loader, val_loader, dataset_config, logger
                     )
                     
-                    # Log métricas formatadas
+                    # Logs locais formatados
                     logger.log_metrics(run_name, metrics)
                     
-                    # Log métricas no MLflow
-                    mlflow.log_metrics({k: v for k, v in metrics.items() if isinstance(v, (int, float))})
+                    # Sincronização de métricas e persistência do modelo no MLflow
+                    numeric_metrics = {k: v for k, v in metrics.items() if isinstance(v, (int, float, complex))}
+                    mlflow.log_metrics(numeric_metrics)
                     mlflow.pytorch.log_model(model, "model")
                     
                     all_metrics.append(metrics)
@@ -135,34 +178,47 @@ def run_dataset_experiments(dataset_name, model_types, logger):
     return all_metrics
 
 
-def run_best_comparison(dataset_name, logger):
-    """Compara os melhores modelos LSTM e GRU baseados em resultados anteriores"""
-    
+def run_best_comparison(
+    dataset_name: str, 
+    logger: ExperimentLogger
+) -> Optional[List[Dict[str, Any]]]:
+    """Identifica e re-executa os melhores modelos para uma comparação final direta.
+
+    Lê os resultados salvos em CSV, seleciona o melhor LSTM e o melhor GRU 
+    baseado no RMSE e executa uma rodada final de validação.
+
+    Args:
+        dataset_name (str): Nome do dataset.
+        logger (ExperimentLogger): Utilitário de log.
+
+    Returns:
+        Optional[List[Dict[str, Any]]]: Lista com métricas dos dois melhores modelos.
+    """
     results_csv = config.RESULTS_DIR / "comprehensive_comparison.csv"
     if not results_csv.exists():
         logger.log(f"ERRO: {results_csv} não encontrado. Execute experimentos primeiro.")
-        return
+        return None
 
     df = pd.read_csv(results_csv)
     
-    # Filtrar melhor LSTM
+    # Filtragem estatística para seleção do melhor LSTM
     lstms = df[df['model_type'] == 'LSTM'].sort_values('RMSE')
     if lstms.empty:
         logger.log("ERRO: Nenhuma LSTM encontrada nos resultados.")
-        return
+        return None
     best_lstm_row = lstms.iloc[0]
     
-    # Filtrar melhor GRU
+    # Filtragem estatística para seleção do melhor GRU
     grus = df[df['model_type'] == 'GRU'].sort_values('RMSE')
     if grus.empty:
         logger.log("ERRO: Nenhuma GRU encontrada nos resultados.")
-        return
+        return None
     best_gru_row = grus.iloc[0]
     
     dataset_config = get_dataset_config(dataset_name)
-    logger.log_section("COMPARAÇÃO DOS MELHORES MODELOS")
+    logger.log_section("COMPARAÇÃO FINAL: TOP PERFORMERS")
     
-    # Carregar dados
+    # Recarregar dados para a rodada final
     train_file_path = dataset_config['data_dir'] / dataset_config['train_file']
     df_full = load_data(
         train_file_path, 
@@ -173,6 +229,7 @@ def run_best_comparison(dataset_name, logger):
     
     results = []
     
+    # Rodar os dois vencedores
     for row in [best_lstm_row, best_gru_row]:
         model_type = row['model_type'].lower()
         arch_name = row['architecture']
@@ -180,7 +237,7 @@ def run_best_comparison(dataset_name, logger):
         
         logger.log_section(f"MELHOR {model_type.upper()} | ARCH: {arch_name} | WINDOW: {window_size}")
         
-        # Preparar dados
+        # Preparação de dados específica para o modelo
         X_train, y_train, X_val, y_val, scaler = prepare_data(
             df_full, window_size=window_size, 
             forecast_horizon=dataset_config['forecast_horizon'],
@@ -201,14 +258,13 @@ def run_best_comparison(dataset_name, logger):
         
         model_name = f"BEST_{model_type.upper()}_{arch_name}_W{window_size}"
         
-        # Treinar
+        # Treinamento e Avaliação final
         model, history, training_time = train_model(
             model, train_loader, val_loader, model_name,
             epochs=dataset_config['epochs'],
             learning_rate=dataset_config['learning_rate']
         )
         
-        # Avaliar
         device = get_device()
         predictions, targets = predict(model, val_loader, device)
         metrics = evaluate_model(model, predictions, targets, history, training_time, model_name)
