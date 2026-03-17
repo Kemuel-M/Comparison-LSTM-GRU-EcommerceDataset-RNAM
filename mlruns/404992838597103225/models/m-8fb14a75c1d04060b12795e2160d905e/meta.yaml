@@ -1,0 +1,10 @@
+artifact_location: /datas/Kemuel/Work/prog_carrer/projetos_portifolio/Comparison-LSTM-GRU-EcommerceDataset-RNAM/mlruns/404992838597103225/models/m-8fb14a75c1d04060b12795e2160d905e/artifacts
+creation_timestamp: 1773771064890
+experiment_id: '404992838597103225'
+last_updated_timestamp: 1773771066993
+model_id: m-8fb14a75c1d04060b12795e2160d905e
+model_type: null
+name: model
+source_run_id: 93194655ca61441f9a2d9194d84097e2
+status: 2
+status_message: null

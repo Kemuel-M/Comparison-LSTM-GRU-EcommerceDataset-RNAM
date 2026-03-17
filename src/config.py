@@ -5,16 +5,21 @@ import os
 from pathlib import Path
 
 # Caminhos
-PROJECT_ROOT = Path(__file__).parent.parent
-DATA_DIR = PROJECT_ROOT / "data" / "demand-forecasting-kernels-only"
-TRAIN_FILE = DATA_DIR / "train.csv"
-TEST_FILE = DATA_DIR / "test.csv"
-MODELS_DIR = PROJECT_ROOT / "models"
-RESULTS_DIR = PROJECT_ROOT / "results"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = PROJECT_ROOT / "data" / "raw"
+# O DATA_DIR específico para cada dataset será definido nos configs de cada um
+# mas mantemos aqui por compatibilidade ou padrão
+DEMAND_FORECASTING_DIR = DATA_DIR / "demand-forecasting-kernels-only"
+PREDICT_FUTURE_SALES_DIR = DATA_DIR / "competitive-data-science-predict-future-sales"
+
+RESULTS_DIR = PROJECT_ROOT / "reports"
+FIGURES_DIR = RESULTS_DIR / "figures"
+MODELS_DIR = PROJECT_ROOT / "models_saved" # Alterado para não conflitar com src/models
 
 # Criar diretórios se não existirem
-MODELS_DIR.mkdir(exist_ok=True)
-RESULTS_DIR.mkdir(exist_ok=True)
+RESULTS_DIR.mkdir(exist_ok=True, parents=True)
+FIGURES_DIR.mkdir(exist_ok=True, parents=True)
+MODELS_DIR.mkdir(exist_ok=True, parents=True)
 
 # Parâmetros de dados
 WINDOW_SIZES = [30, 90, 180, 365]  # Janelas de 1 mês, 3 meses, 6 meses e 1 ano

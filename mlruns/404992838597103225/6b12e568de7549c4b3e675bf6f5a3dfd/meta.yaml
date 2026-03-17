@@ -1,0 +1,14 @@
+artifact_uri: /datas/Kemuel/Work/prog_carrer/projetos_portifolio/Comparison-LSTM-GRU-EcommerceDataset-RNAM/mlruns/404992838597103225/6b12e568de7549c4b3e675bf6f5a3dfd/artifacts
+end_time: 1773770302302
+entry_point_name: ''
+experiment_id: '404992838597103225'
+lifecycle_stage: active
+run_id: 6b12e568de7549c4b3e675bf6f5a3dfd
+run_name: LSTM_huge_W30_demand_forecasting
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1773770290620
+status: 3
+tags: []
+user_id: kemuel

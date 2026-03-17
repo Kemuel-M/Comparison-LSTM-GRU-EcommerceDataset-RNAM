@@ -1,0 +1,6 @@
+artifact_location: /datas/Kemuel/Work/prog_carrer/projetos_portifolio/Comparison-LSTM-GRU-EcommerceDataset-RNAM/mlruns/404992838597103225
+creation_time: 1773770146383
+experiment_id: '404992838597103225'
+last_update_time: 1773770146383
+lifecycle_stage: active
+name: LSTM_vs_GRU_Demand_Forecasting

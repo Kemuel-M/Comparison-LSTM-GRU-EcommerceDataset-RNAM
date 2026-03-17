@@ -1,0 +1,23 @@
+artifact_path: /datas/Kemuel/Work/prog_carrer/projetos_portifolio/Comparison-LSTM-GRU-EcommerceDataset-RNAM/mlruns/404992838597103225/models/m-00378af5432149bd9e780ea09fccaa2c/artifacts
+flavors:
+  python_function:
+    config:
+      device: null
+    data: data
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pytorch
+    pickle_module_name: mlflow.pytorch.pickle_module
+    python_version: 3.14.3
+  pytorch:
+    code: null
+    model_data: data
+    pytorch_version: 2.10.0+cu128
+mlflow_version: 3.9.0
+model_id: m-00378af5432149bd9e780ea09fccaa2c
+model_size_bytes: 4094943
+model_uuid: m-00378af5432149bd9e780ea09fccaa2c
+prompts: null
+run_id: f46fd9782e07448ea5d9c583bab72c27
+utc_time_created: '2026-03-17 18:00:29.400035'
