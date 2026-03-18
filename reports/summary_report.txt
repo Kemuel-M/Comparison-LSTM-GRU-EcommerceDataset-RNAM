@@ -1,0 +1,39 @@
+RELATÓRIO DE COMPARAÇÃO EXAUSTIVA: LSTM vs GRU
+==================================================
+
+TOP 5 MODELOS POR RMSE:
+   model_type architecture  window_size      RMSE       MAE
+28        GRU  extra_large          180  0.734270  0.597642
+23       LSTM  extra_large          180  0.734544  0.604155
+18        GRU  extra_large           90  0.735737  0.597671
+36        GRU       medium          365  0.736491  0.598448
+37        GRU        large          365  0.739156  0.602679
+
+MÉDIAS POR TIPO DE MODELO:
+                RMSE       MAE  training_time
+model_type                                   
+GRU         0.759341  0.613542      14.803520
+LSTM        0.810799  0.647964      20.371331
+
+MÉDIAS POR ARQUITETURA E MODELO:
+                             RMSE       MAE  training_time
+architecture model_type                                   
+extra_large  GRU         0.738787  0.600762      23.105749
+             LSTM        0.773688  0.626672      31.676386
+huge         GRU         0.760661  0.615540      27.680133
+             LSTM        0.802664  0.645909      40.076270
+large        GRU         0.747859  0.605453      13.504767
+             LSTM        0.839435  0.669008      19.239832
+medium       GRU         0.784075  0.630487       7.166193
+             LSTM        0.834643  0.659604       8.977221
+small        GRU         0.765322  0.615467       2.560756
+             LSTM        0.803565  0.638628       1.886945
+
+MÉDIAS POR JANELA (WINDOW SIZE):
+                 RMSE       MAE
+window_size                    
+30           0.774355  0.624762
+90           0.765404  0.616911
+180          0.804529  0.643202
+365          0.795992  0.638136
+

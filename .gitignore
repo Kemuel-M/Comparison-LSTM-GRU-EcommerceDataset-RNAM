@@ -1,0 +1,33 @@
+# Data
+data/raw/
+data/processed/
+data/external/
+
+# References
+references/
+
+# Logs and tracking
+mlruns/
+experiment_log_*.txt
+console_*.txt
+
+# Models
+models_saved/
+
+# Reports and Figures
+reports/figures/
+reports/*.csv
+reports/*.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+venv/
+.venv/
+env/
+.env
+
+# Jupyter Notebooks
+.ipynb_checkpoints/

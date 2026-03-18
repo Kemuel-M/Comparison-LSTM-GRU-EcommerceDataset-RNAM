@@ -1,0 +1,13 @@
+Para impressionar em vagas de computação, foque no seguinte no seu README.md:
+
+
+   1. Análise de Complexidade: Não fale apenas de acurácia (MAE/RMSE). Compare o tempo de execução e o
+      número de parâmetros entre LSTM e GRU. Explique por que o GRU (sendo mais simples) pode ser
+      melhor em cenários de baixa latência.
+   2. Reprodutibilidade: Adicione instruções claras de como criar o ambiente:
+   1     python -m venv venv
+   2     source venv/bin/activate
+   3     pip install -r src/requirements.txt
+   4     python main.py --model lstm --window 30
+   3. Justificativa Teórica: Use as referências que você já coletou para explicar a escolha dos modelos
+      (ex: por que usar Redes Recorrentes para demanda de E-commerce e não um simples XGBoost?).
